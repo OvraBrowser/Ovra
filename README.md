@@ -5,8 +5,8 @@
 <h1 align="center">Ovra Browser</h1>
 
 <p align="center">
-  A fast, private web browser for macOS, built on WebKit.<br>
-  No accounts. No tracking. Just the web.
+  A fast web browser for Mac, iPhone and iPad, built on WebKit.<br>
+  Sign in once and your tabs, bookmarks and history follow you.
 </p>
 
 <p align="center">
@@ -19,6 +19,7 @@
 
 ## Features
 
+- **Ovra account** *(coming soon)*: sign in on your Mac, iPhone and iPad to sync tabs, bookmarks, history and settings
 - **Ad and tracker blocking** built in, powered by DuckDuckGo's Tracker Radar
 - **Fingerprinting resistance** to make you harder to follow across sites
 - **Bookmarks and library**
@@ -44,7 +45,8 @@ Swift packages resolve automatically. The blocking rules live in [`Packages/Cont
 
 ## Roadmap
 
-- Ovra for iPhone and iPad, with iCloud sync for tabs, bookmarks and history
+- Ovra accounts: sign up and log in, with tabs, bookmarks, history and settings saved to your account
+- Ovra for iPhone and iPad, synced with the Mac app through your account
 - Password manager and passkeys
 - Privacy dashboard: trackers blocked, fingerprinting status, per-site permissions
 - Tab groups, pinned tabs and tab search
