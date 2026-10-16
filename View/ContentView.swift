@@ -20,9 +20,6 @@ struct ContentView: View {
       if let _ = browser.activeTabId, browser.tabs.count > 0 {
         GeometryReader { geometry in
           VStack(spacing: 0) {
-            if windowDelegate.isFullScreen {
-              WindowTitleBarView(service: service, browser: browser, tabs: $browser.tabs, activeTabId: $browser.activeTabId, isFullScreen: true)
-            }
             MainView(service: service, browser: browser)
               .onAppear {
                 windowWidth = geometry.size.width
@@ -33,6 +30,7 @@ struct ContentView: View {
           }
           SearchBoxDialog(service: service, browser: browser, activeTabId: $browser.activeTabId, isFullScreen: $windowDelegate.isFullScreen)
         }
+        .ignoresSafeArea()
       }
     }
     .onAppear {

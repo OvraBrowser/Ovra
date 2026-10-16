@@ -32,6 +32,23 @@ struct AboutView: View {
             
             // Links
             VStack(spacing: 8) {
+                Button {
+                    AppDelegate.shared.showWhatsNew()
+                } label: {
+                    HStack {
+                        Text(NSLocalizedString("What's New", comment: ""))
+                            .font(.system(size: 13))
+                            .foregroundColor(Color("UIText"))
+                        Spacer()
+                        Image(systemName: "sparkles")
+                            .foregroundColor(.settingsAccent)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.settingsCard))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
                 AboutInfoRow(title: "GitHub Repository", link: "https://github.com/OvraBrowser/Ovra", browser: browser)
                 AboutInfoRow(title: "Licenses", link: "https://github.com/OvraBrowser/Ovra/tree/main/Packages/ContentBlockRuleList", browser: browser)
                 AboutInfoRow(title: "Contact / Feedback", link: "mailto:contact@kilianbalaguer.me", browser: browser)

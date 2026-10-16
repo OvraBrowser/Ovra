@@ -14,6 +14,8 @@ struct TabContentView: View {
                 NewTabView(browser: browser, tab: tab)
             } else if tab.isSetting {
                 SettingsView(browser: browser)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(color: .black.opacity(0.12), radius: 10, y: 2)
             } else if tab.showErrorPage, let errorType = tab.errorPageType {
                 ErrorPageView(
                     errorType: errorType,
@@ -35,10 +37,12 @@ struct TabContentView: View {
                 }
             } else {
                 WebviewArea(service: service, browser: browser, tab: tab)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
-                    .padding(.horizontal, 8)
-                    .padding(.bottom, 8)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Color.black.opacity(0.1), lineWidth: 0.5)
+                    )
+                    .shadow(color: .black.opacity(0.12), radius: 10, y: 2)
             }
         }
         .offset(y: isActive ? 0 : geometryHeight + 1)

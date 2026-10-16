@@ -11,30 +11,41 @@ struct AddFavoriteButton: View {
   @Binding var editingFavorite: Favorite?
   
   @State private var isHovered = false
-  
+  @AppStorage("selectedTheme") private var selectedTheme: String = Theme.bluePurple.rawValue
+  // Observed so text colour updates when a custom theme is edited.
+  @AppStorage("customThemes") private var customThemesData: Data = Data()
+
   var body: some View {
-    VStack(spacing: 8) {
-      Button(action: {
-        editingFavorite = nil
-        showEditDialog = true
-      }) {
+    let foreground = ThemeForeground.color(for: selectedTheme)
+    Button(action: {
+      editingFavorite = nil
+      showEditDialog = true
+    }) {
+      VStack(spacing: 8) {
         Image(systemName: "plus")
-          .font(.system(size: 18))
-          .foregroundColor(Color("UIText").opacity(0.8))
-          .frame(width: 112, height: 112)
+          .font(.system(size: 20, weight: .medium))
+          .foregroundColor(foreground)
+          .frame(width: 72, height: 72)
           .background(
-            // 배경 영역
-            RoundedRectangle(cornerRadius: 10)
-              .fill(Color("UIText").opacity(isHovered ? 0.06 : 0.03))
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+              .fill(foreground.opacity(isHovered ? 0.22 : 0.14))
+              .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                  .strokeBorder(foreground.opacity(0.3), lineWidth: 1)
+              )
           )
+        Text(NSLocalizedString("Add", comment: ""))
+          .font(.system(size: 12))
+          .foregroundColor(foreground)
       }
-      .buttonStyle(.plain)
+      .frame(width: 96)
+      .contentShape(Rectangle())
     }
+    .buttonStyle(.plain)
     .onHover { hovering in
-      withAnimation(.easeInOut(duration: 0.2)) {
+      withAnimation(.easeInOut(duration: 0.15)) {
         isHovered = hovering
       }
     }
   }
 }
-

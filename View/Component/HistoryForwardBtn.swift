@@ -36,7 +36,7 @@ struct HistoryForwardBtn: View {
           self.isForwardDialog = true
         }
       })
-    .frame(width: 24, height: 24)
+    .frame(width: 40, height: 36)
     .popover(isPresented: $isForwardDialog, arrowEdge: .bottom) {
       HistoryDialog(tab: tab, browser: browser, isBack: false, closeDialog: $isForwardDialog)
     }

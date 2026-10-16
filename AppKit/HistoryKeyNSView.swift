@@ -38,6 +38,11 @@ struct HistoryKeyNSView: NSViewRepresentable {
     
     let hostingView = NSHostingView(rootView: HistoryKeyButton(tab: tab, isBack: isBack))
     hostingView.translatesAutoresizingMaskIntoConstraints = false
+    // The container is sized by SwiftUI; the hosted button must not push
+    // its own size constraints back up (that caused an update-constraints loop).
+    hostingView.sizingOptions = []
+    // It sits in the titlebar area; don't let it inset itself below it.
+    hostingView.safeAreaRegions = []
     
     containerView.addSubview(hostingView)
     
@@ -45,7 +50,7 @@ struct HistoryKeyNSView: NSViewRepresentable {
       hostingView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
       hostingView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
       hostingView.topAnchor.constraint(equalTo: containerView.topAnchor),
-      hostingView.heightAnchor.constraint(equalTo: containerView.heightAnchor)
+      hostingView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
     ])
     
     return containerView
@@ -53,9 +58,12 @@ struct HistoryKeyNSView: NSViewRepresentable {
   
   func updateNSView(_ nsView: NSView, context: Context) {
     for subview in nsView.subviews {
-      if let hostingView = subview as? NSHostingView<HistoryKeyButton> {
+      // HistoryKeyButton observes the tab itself, so only swap the root view
+      // when the tab changes. Replacing it on every update re-invalidates
+      // constraints and loops.
+      if let hostingView = subview as? NSHostingView<HistoryKeyButton>,
+         hostingView.rootView.tab !== tab || hostingView.rootView.isBack != isBack {
         hostingView.rootView = HistoryKeyButton(tab: tab, isBack: isBack)
-        hostingView.layout()
       }
     }
     

@@ -19,6 +19,10 @@ final class Browser: ObservableObject, Identifiable {
   @Published var tabs: [Tab] = []
   @Published var activeTabId: UUID?
   @Published var isSideBar: Bool = false
+  /// Left glass sidebar with vertical tabs. Remembered across launches.
+  @Published var isTabSidebar: Bool = UserDefaults.standard.object(forKey: "isTabSidebar") as? Bool ?? true {
+    didSet { UserDefaults.standard.set(isTabSidebar, forKey: "isTabSidebar") }
+  }
     @Published var settingsTab: SettingsSection = .General
     @Published var selectedSettingsCategory: SettingsCategory = .general
 
@@ -96,6 +100,35 @@ final class Browser: ObservableObject, Identifiable {
     }
   }
   
+  /// Opens Settings on the given section, reusing an open Settings tab.
+  func showSettings(category: SettingsCategory) {
+    selectedSettingsCategory = category
+    if let settingsTab = tabs.first(where: { $0.isSetting }) {
+      clearSearchEditMode()
+      activeTabId = settingsTab.id
+    } else {
+      openSettings()
+    }
+  }
+
+  func closeTab(_ tab: Tab) {
+    guard let index = tabs.firstIndex(where: { $0.id == tab.id }) else { return }
+    let removeTabId = tab.id
+    tab.closeTab {
+      guard let removeIndex = self.tabs.firstIndex(where: { $0.id == removeTabId }) else { return }
+      self.tabs.remove(at: removeIndex)
+      if self.tabs.isEmpty {
+        AppDelegate.shared.closeWindow()
+      } else {
+        if self.activeTabId == removeTabId {
+          let targetIndex = self.tabs.count > index ? index : self.tabs.count - 1
+          self.activeTabId = self.tabs[targetIndex].id
+        }
+        AppDelegate.shared.closeInspector(removeTabId)
+      }
+    }
+  }
+
   func closeAllTab(completion: @escaping () -> Void) {
     let group = DispatchGroup()
     for tab in tabs {

@@ -57,7 +57,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, ObservableOb
   @MainActor
   let modelContainer: ModelContainer = {
     let schema = Schema([GeneralSetting.self, DomainPermission.self, BookmarkGroup.self,  SearchHistoryGroup.self, VisitHistoryGroup.self, Favorite.self])
-    let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    // Debug builds only: `-OvraDemoProfile` starts with an empty in-memory
+    // database plus sample favorites, for clean screenshots that never show
+    // real history or bookmarks.
+    #if DEBUG
+    let isDemoProfile = ProcessInfo.processInfo.arguments.contains("-OvraDemoProfile")
+    #else
+    let isDemoProfile = false
+    #endif
+    let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: isDemoProfile)
     do {
       let container = try ModelContainer(for: schema, configurations: [modelConfiguration])
       
@@ -77,6 +85,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, ObservableOb
         }
       }
       
+      if isDemoProfile {
+        for (title, address) in [("GitHub", "github.com"), ("Apple", "apple.com"), ("Wikipedia", "wikipedia.org"), ("YouTube", "youtube.com"), ("Figma", "figma.com")] {
+          container.mainContext.insert(Favorite(title: title, address: address))
+        }
+      }
+
       return container
     } catch {
       fatalError("Could not create ModelContainer: \(error)")
@@ -115,7 +129,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, ObservableOb
       .modelContainer(modelContainer)
       
     
-    newWindow.contentView = NSHostingController(rootView: contentView).view
+    let hostingController = NSHostingController(rootView: contentView)
+    // Don't let SwiftUI push size constraints onto the window: the toolbar
+    // overlay is positioned from measured frames and would keep re-triggering
+    // window constraint passes.
+    hostingController.sizingOptions = []
+    newWindow.contentView = hostingController.view
+    newWindow.contentMinSize = NSSize(width: 500, height: 350)
     
     if isWindowCenter {
       newWindow.center()
@@ -131,11 +151,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, ObservableOb
     let windowController = NSWindowController(window: newWindow)
     windowController.showWindow(self)
      
-    newWindow.toolbar = NSToolbar()
-    
-    let accessoryVC = TitlebarTabViewController(service: self.service, browser: self.service.browsers[newWindowNo]!)
-    accessoryVC.layoutAttribute = .top
-    newWindow.addTitlebarAccessoryViewController(accessoryVC)
+    // No NSToolbar: it swallows clicks in the top strip where Ovra's own
+    // toolbar lives. Instead the traffic lights are moved down by hand so
+    // they line up with the sidebar header.
+    OvraWindowDelegate.layoutTrafficLights(newWindow)
     
     NSApplication.shared.activate(ignoringOtherApps: true)
   }
@@ -153,27 +172,36 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, ObservableOb
     }
 
     func showOnboarding() {
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 540, height: 520),
-            styleMask: [.titled, .closable, .fullSizeContentView],
+        let screen = NSScreen.main ?? NSScreen.screens.first
+        let screenFrame = screen?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let cardSize = CGSize(width: min(820, screenFrame.width - 80), height: min(600, screenFrame.height - 120))
+
+        // Full-screen, borderless and transparent: the intro dims the desktop,
+        // then the orb grows into the onboarding window in the middle.
+        let window = OnboardingStageWindow(
+            contentRect: screenFrame,
+            styleMask: [.borderless],
             backing: .buffered, defer: false
         )
-        window.center()
-        window.title = "Welcome to Ovra"
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
+        window.title = NSLocalizedString("Welcome to Ovra", comment: "")
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
         window.isReleasedWhenClosed = false
-        window.isMovableByWindowBackground = true
+        window.level = .floating
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        let hostingView = NSHostingController(rootView:
-            OnboardingView(onFinish: { [weak self] in
-                self?.onboardingWindow?.close()
+        let hostingView = NSHostingView(rootView:
+            OnboardingStageView(screenSize: screenFrame.size, cardSize: cardSize, onComplete: { [weak self] in
+                self?.onboardingWindow?.orderOut(nil)
                 self?.onboardingWindow = nil
                 self?.createWindow()
             })
             .modelContainer(modelContainer)
         )
-        window.contentView = hostingView.view
+        hostingView.sizingOptions = []
+        window.contentView = hostingView
+        window.setFrame(screenFrame, display: true)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         self.onboardingWindow = window
@@ -185,26 +213,39 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, ObservableOb
 
         if lastVersion != currentVersion {
             UserDefaults.standard.set(currentVersion, forKey: whatsNewShownKey)
-
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-                guard let self = self else { return }
-                let window = NSWindow(
-                    contentRect: NSRect(x: 0, y: 0, width: 460, height: 600),
-                    styleMask: [.titled, .closable],
-                    backing: .buffered, defer: false
-                )
-                window.center()
-                window.title = "What's New"
-                window.isReleasedWhenClosed = false
-                let hostingView = NSHostingController(rootView: WhatsNewView(manager: WhatsNewManager(), onClose: { [weak self] in
-                    self?.whatsNewWindow?.close()
-                    self?.whatsNewWindow = nil
-                }))
-                window.contentView = hostingView.view
-                window.makeKeyAndOrderFront(nil)
-                NSApp.activate(ignoringOtherApps: true)
-                self.whatsNewWindow = window
+                self?.showWhatsNew()
             }
+        }
+    }
+
+    /// Opens the What's New window (also from the Ovra menu and About).
+    @objc func showWhatsNew() {
+        if let existing = whatsNewWindow {
+            existing.makeKeyAndOrderFront(nil)
+            return
+        }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 640),
+            styleMask: [.titled, .closable, .fullSizeContentView],
+            backing: .buffered, defer: false
+        )
+        window.title = NSLocalizedString("What's New", comment: "")
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
+        window.isReleasedWhenClosed = false
+        let hostingView = NSHostingController(rootView: WhatsNewView(manager: WhatsNewManager(), onClose: { [weak self] in
+            self?.whatsNewWindow?.close()
+            self?.whatsNewWindow = nil
+        }).ignoresSafeArea())
+        window.contentView = hostingView.view
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        self.whatsNewWindow = window
+        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
+            self?.whatsNewWindow = nil
         }
     }
 
@@ -429,6 +470,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, ObservableOb
     }
   }
   
+  /// Double-clicked .ovratheme / .ovrabackup files.
+  func application(_ application: NSApplication, open urls: [URL]) {
+    let ovraFiles = urls.filter { ["ovratheme", "ovrabackup"].contains($0.pathExtension.lowercased()) }
+    guard !ovraFiles.isEmpty else { return }
+    // Give a freshly launched app a moment to open its first window.
+    DispatchQueue.main.asyncAfter(deadline: .now() + (service.browsers.isEmpty ? 0.6 : 0)) {
+      if self.service.browsers.isEmpty && UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
+        self.createWindow()
+      }
+      for url in ovraFiles {
+        OvraFileManager.open(url)
+      }
+    }
+  }
+
   func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
     if !flag {
       createWindow()

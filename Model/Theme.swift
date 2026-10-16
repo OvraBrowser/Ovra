@@ -1,59 +1,102 @@
 import SwiftUI
 
+/// Built-in themes. Raw values are stored in `selectedTheme`, so never rename them.
 enum Theme: String, CaseIterable, Identifiable {
     case bluePurple = "Aurora"
-    case greenYellow = "Solar Flare"
-    case redOrange = "Crimson Heat"
-    case tealPink = "Neon Sunset"
-    case midnight = "Midnight Blue"
-    case icyMist = "Icy Mist"
-    case forestBloom = "Forest Bloom"
     case velvetDusk = "Velvet Dusk"
+    case midnight = "Midnight Blue"
+    case forestBloom = "Forest Bloom"
+    case ocean = "Deep Ocean"
+    case tealPink = "Neon Sunset"
+    case redOrange = "Crimson Heat"
+    case greenYellow = "Solar Flare"
+    case coral = "Coral Reef"
+    case rose = "Rosé"
+    case icyMist = "Icy Mist"
+    case graphite = "Graphite"
 
     var id: String { rawValue }
 
-    var gradient: LinearGradient {
+    /// Gradient stops, first to last.
+    var colorHexes: [String] {
         switch self {
-        case .bluePurple:
-            return LinearGradient(
-                colors: [Color(hex: "#667EEA"), Color(hex: "#764BA2")],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-        case .greenYellow:
-            return LinearGradient(
-                colors: [Color(hex: "#F2994A"), Color(hex: "#F2C94C")],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-        case .redOrange:
-            return LinearGradient(
-                colors: [Color(hex: "#E44D56"), Color(hex: "#F09819")],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-        case .tealPink:
-            return LinearGradient(
-                colors: [Color(hex: "#43CEA2"), Color(hex: "#E05FC4")],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-        case .midnight:
-            return LinearGradient(
-                colors: [Color(hex: "#0F2027"), Color(hex: "#203A43"), Color(hex: "#2C5364")],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-        case .icyMist:
-            return LinearGradient(
-                colors: [Color(hex: "#E0EAFC"), Color(hex: "#CFDEF3")],
-                startPoint: .top, endPoint: .bottom
-            )
-        case .forestBloom:
-            return LinearGradient(
-                colors: [Color(hex: "#11998E"), Color(hex: "#38EF7D")],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-        case .velvetDusk:
-            return LinearGradient(
-                colors: [Color(hex: "#4A00E0"), Color(hex: "#8E2DE2")],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
+        case .bluePurple:  return ["#5A68D6", "#5E4BB8", "#5A3590"]
+        case .velvetDusk:  return ["#84406F", "#632E62", "#3F1F4A"]
+        case .midnight:    return ["#2A3F7A", "#1F2D5E", "#141D3D"]
+        case .forestBloom: return ["#2F6B55", "#25594A", "#1B3E36"]
+        case .ocean:       return ["#1C7C9C", "#155E86", "#0E3B5C"]
+        case .tealPink:    return ["#2BAF8F", "#7A6FC8", "#D35FB0"]
+        case .redOrange:   return ["#D9434F", "#E5683A", "#F09819"]
+        case .greenYellow: return ["#F2994A", "#F2B544", "#F2C94C"]
+        case .coral:       return ["#FF7E5F", "#FD9A6E", "#FEB47B"]
+        case .rose:        return ["#F3B6C2", "#F7CDD5", "#FDE6EA"]
+        case .icyMist:     return ["#E0EAFC", "#D6E3F6", "#CFDEF3"]
+        case .graphite:    return ["#4A4A52", "#2E2E34", "#1C1C20"]
+        }
+    }
+
+    /// CSS-style direction in degrees (135 = top-left → bottom-right).
+    var angle: Double {
+        switch self {
+        case .icyMist, .rose: return 180
+        default: return 125
+        }
+    }
+
+    var gradient: LinearGradient {
+        ThemeGradient.linear(hexes: colorHexes, angle: angle)
+    }
+}
+
+/// Which text colour sits on top of the theme.
+enum ThemeTextStyle: String, Codable, CaseIterable, Identifiable {
+    case auto, light, dark
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .auto: return NSLocalizedString("Automatic", comment: "")
+        case .light: return NSLocalizedString("Light Text", comment: "")
+        case .dark: return NSLocalizedString("Dark Text", comment: "")
+        }
+    }
+}
+
+enum ThemeGradient {
+    static func linear(hexes: [String], angle: Double) -> LinearGradient {
+        let colors = (hexes.isEmpty ? Theme.bluePurple.colorHexes : hexes).map { Color(hex: $0) }
+        let (start, end) = points(for: angle)
+        return LinearGradient(colors: colors, startPoint: start, endPoint: end)
+    }
+
+    /// Converts a CSS angle (0 = to top, 90 = to right) into SwiftUI unit points.
+    static func points(for angle: Double) -> (UnitPoint, UnitPoint) {
+        let radians = (angle - 90) * .pi / 180
+        let dx = cos(radians) * 0.5
+        let dy = sin(radians) * 0.5
+        return (UnitPoint(x: 0.5 - dx, y: 0.5 - dy), UnitPoint(x: 0.5 + dx, y: 0.5 + dy))
+    }
+
+    /// Average relative luminance (0–1) of the stops.
+    static func luminance(of hexes: [String]) -> Double {
+        let values = hexes.compactMap { hex -> Double? in
+            let clean = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+            guard clean.count == 6, let int = UInt64(clean, radix: 16) else { return nil }
+            func channel(_ v: UInt64) -> Double {
+                let c = Double(v) / 255
+                return c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+            }
+            return 0.2126 * channel((int >> 16) & 0xFF) + 0.7152 * channel((int >> 8) & 0xFF) + 0.0722 * channel(int & 0xFF)
+        }
+        guard !values.isEmpty else { return 0 }
+        return values.reduce(0, +) / Double(values.count)
+    }
+
+    static func usesDarkText(hexes: [String], style: ThemeTextStyle) -> Bool {
+        switch style {
+        case .light: return false
+        case .dark: return true
+        case .auto: return luminance(of: hexes) > 0.45
         }
     }
 }

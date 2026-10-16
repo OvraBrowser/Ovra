@@ -30,6 +30,9 @@ struct MainCommands: Commands {
       
       // Sparkle "Check for Updates" command
       CommandGroup(after: .appInfo) {
+          Button(NSLocalizedString("What's New in Ovra", comment: "")) {
+              appDelegate.showWhatsNew()
+          }
           Button("Check for Updates") {
               AppDelegate.shared.updaterController.checkForUpdates(nil)
           }

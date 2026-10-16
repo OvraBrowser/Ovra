@@ -10,33 +10,29 @@ struct HistoryKeyButton: View {
   @ObservedObject var tab: Tab
   var isBack: Bool
   
-  let iconHeight: CGFloat = 24
-  let iconRadius: CGFloat = 6
-  
+  @AppStorage("selectedTheme") private var selectedTheme: String = Theme.bluePurple.rawValue
+  // Observed so text colour updates when a custom theme is edited.
+  @AppStorage("customThemes") private var customThemesData: Data = Data()
   @State private var isBackForwardHover: Bool = false
   
   var body: some View {
-    
     let icon = isBack ? "chevron.backward" : "chevron.forward"
     let isBackForward = isBack ? tab.isBack : tab.isForward
+    let tint = ThemeForeground.color(for: selectedTheme)
     
-    VStack {
-      VStack(spacing: 0) {
-        Image(systemName: icon)
-          .foregroundColor(Color("Icon"))
-          .fontWeight(.regular)
-          .font(.system(size: 14))
-          .opacity(isBackForward ? 1 : 0.4)
-      }
-      .frame(maxWidth: iconHeight, maxHeight: iconHeight)
-      .background(isBackForwardHover && isBackForward ? .gray.opacity(0.2) : .gray.opacity(0))
-      .clipShape(RoundedRectangle(cornerRadius: iconRadius))
+    Image(systemName: icon)
+      .font(.system(size: 14, weight: .semibold))
+      .foregroundColor(tint.opacity(isBackForward ? 1 : 0.45))
+      .frame(width: 40, height: 36)
+      .background(
+        Capsule(style: .continuous)
+          .fill(tint.opacity(isBackForwardHover && isBackForward ? 0.16 : 0))
+          .padding(3)
+      )
       .onHover { hovering in
-        withAnimation {
+        withAnimation(.easeInOut(duration: 0.12)) {
           isBackForwardHover = hovering
         }
       }
-    }
-    .frame(width: iconHeight, height: iconHeight)
   }
 }

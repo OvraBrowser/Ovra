@@ -36,7 +36,7 @@ struct HistoryBackBtn: View {
           self.isBackDialog = true
         }
       })
-    .frame(width: 24, height: 24)
+    .frame(width: 40, height: 36)
     .popover(isPresented: $isBackDialog, arrowEdge: .bottom) {
       HistoryDialog(tab: tab, browser: browser, isBack: true, closeDialog: $isBackDialog)
     }

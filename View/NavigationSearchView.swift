@@ -15,6 +15,6 @@ struct NavigationSearchView: View {
                     .id(activeTab.id)
             }
         }
-        .frame(height: 52)
+        .frame(height: MainView.toolbarHeight)
     }
 }

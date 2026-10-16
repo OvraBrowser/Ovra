@@ -6,6 +6,8 @@ struct WhatsNewEntry: Identifiable {
     let title: String
     let icon: String
     let description: String
+    /// Badge colour in the What's New window.
+    var colorHex: String = "#5E5CE6"
 }
 
 struct WhatsNewVersion: Identifiable {
@@ -17,39 +19,18 @@ struct WhatsNewVersion: Identifiable {
 
 struct WhatsNewStore {
     static let allVersions: [WhatsNewVersion] = [
-        WhatsNewVersion(
-            version: "1.0.2",
-            title: "Version 1.0.2",
-            items: [
-                WhatsNewEntry(title: "Bug Fixes", icon: "ant", description: "Fixed Sparkle updater and improved stability."),
-                WhatsNewEntry(title: "Redesigned About Page", icon: "info.circle", description: "Updated About page layout and visuals."),
-                WhatsNewEntry(title: "What's New Page", icon: "doc.text", description: "New What’s New window appears on update."),
-                WhatsNewEntry(title: "Theme Page", icon: "paintbrush", description: "Switch themes easily from the new Theme settings.")
-            ]
-        ),
-        WhatsNewVersion(
-            version: "1.0.1",
-            title: "Version 1.0.1",
-            items: [
-                WhatsNewEntry(title: "UI Redesign", icon: "rectangle.and.pencil.and.ellipsis", description: "Homepage and About window redesigned with cleaner spacing."),
-                WhatsNewEntry(title: "About Window", icon: "info.circle", description: "Now opens as a floating window, not blocking the app."),
-                WhatsNewEntry(title: "Auto-Updater Fix", icon: "arrow.triangle.2.circlepath", description: "Sparkle update checking and installation now works properly."),
-                WhatsNewEntry(title: "Sidebar Logic", icon: "sidebar.left", description: "Improved toggle behavior for sidebar."),
-                WhatsNewEntry(title: "Tab Fixes", icon: "folder", description: "Minor tab memory and layout fixes."),
-                WhatsNewEntry(title: "Icon & Fonts", icon: "textformat.size", description: "Better spacing and text rendering on small screens.")
-            ]
-        ),
+        // Add the next release at the top. Notes before 1.0 are from AeroBrowser.
         WhatsNewVersion(
             version: "1.0.0",
-            title: "Version 1.0.0",
+            title: "Ovra 1.0",
             items: [
-                WhatsNewEntry(title: "Full Rewrite", icon: "hammer", description: "The app was fully rewritten with a new design and logic."),
-                WhatsNewEntry(title: "Ad Blocker", icon: "nosign", description: "Blocks most annoying ads by default."),
-                WhatsNewEntry(title: "Bookmarks", icon: "bookmark", description: "Added support for saving and organizing bookmarks."),
-                WhatsNewEntry(title: "Search History", icon: "clock", description: "Browser keeps track of your search history."),
-                WhatsNewEntry(title: "Custom Search Engines", icon: "magnifyingglass", description: "Choose Google, Bing, Yahoo, and more."),
-                WhatsNewEntry(title: "Reset Options", icon: "trash", description: "Clear your browser data by days/weeks."),
-                WhatsNewEntry(title: "Captcha Avoidance", icon: "shield.lefthalf.fill", description: "Redesigned internals to reduce Google CAPTCHA triggers.")
+                WhatsNewEntry(title: "A whole new look", icon: "sparkles", description: "Tabs live in a glass sidebar, the toolbar floats over your theme, and pages sit on a clean card.", colorHex: "#5E5CE6"),
+                WhatsNewEntry(title: "Privacy at a glance", icon: "shield.lefthalf.filled", description: "Click the shield in the address bar to see cookies, storage and connection, and switch blocking on or off.", colorHex: "#0A84FF"),
+                WhatsNewEntry(title: "Themes, your way", icon: "paintpalette.fill", description: "New built-in themes, plus custom themes with up to four colors, any direction, glass and grain.", colorHex: "#BF5AF2"),
+                WhatsNewEntry(title: "Share themes", icon: "square.and.arrow.up", description: "Export a theme as an .ovratheme file. Anyone with Ovra can double-click it to add it.", colorHex: "#FF9F0A"),
+                WhatsNewEntry(title: "Backups", icon: "arrow.up.arrow.down", description: "Save settings, themes, favorites and bookmarks to an .ovrabackup file and restore them on any Mac.", colorHex: "#30D158"),
+                WhatsNewEntry(title: "Downloads that work", icon: "arrow.down.circle.fill", description: "Live progress and sizes, downloads keep going when you switch tabs, and cancel cleans up.", colorHex: "#64D2FF"),
+                WhatsNewEntry(title: "Redesigned Settings", icon: "gearshape.fill", description: "Searchable settings with grouped sections, your profile name, and a full reset.", colorHex: "#8E8E93")
             ]
         ),
         WhatsNewVersion(

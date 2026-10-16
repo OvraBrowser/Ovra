@@ -18,85 +18,60 @@ struct FavoriteItemView: View {
   @State private var showMenu = false
   @State private var isButtonHovered = false
   
+  @AppStorage("selectedTheme") private var selectedTheme: String = Theme.bluePurple.rawValue
+  // Observed so text colour updates when a custom theme is edited.
+  @AppStorage("customThemes") private var customThemesData: Data = Data()
+
   var body: some View {
     VStack(spacing: 8) {
-      // 아이콘
-      Circle()
-        .fill(Color("FavoriteBG").opacity(0.85))
-        .frame(width: 32, height: 32)
-        .overlay(
-          Text(String(favorite.title.prefix(1).uppercased()))
-            .font(.system(size: 14, weight: .medium))
-            .foregroundColor(Color("FavoriteText"))
+      Text(String(favorite.title.prefix(1).uppercased()))
+        .font(.system(size: 28, weight: .bold))
+        .foregroundColor(Color(red: 0.14, green: 0.16, blue: 0.18))
+        .frame(width: 72, height: 72)
+        .background(
+          RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(Color.white.opacity(0.92))
         )
-      
-      // 제목
+        .shadow(color: Color(red: 0.08, green: 0.04, blue: 0.24).opacity(0.2), radius: 9, y: 6)
+        .scaleEffect(isHovered ? 1.04 : 1)
+        .overlay(alignment: .topTrailing) {
+          if isHovered {
+            Button(action: {
+              showMenu = true
+              tab.isEditSearch = false
+            }) {
+              Image(systemName: "ellipsis")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(Color(red: 0.14, green: 0.16, blue: 0.18))
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(Color.white))
+                .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(NSLocalizedString("Edit favorite", comment: ""))
+            .offset(x: 6, y: -6)
+          }
+        }
+        .popover(isPresented: $showMenu, arrowEdge: .top) {
+          FavoriteContextMenu(
+            favorite: favorite,
+            editingFavorite: $editingFavorite,
+            showEditDialog: $showEditDialog,
+            showMenu: $showMenu
+          )
+        }
+
       Text(favorite.title)
-        .font(.system(size: 14))
-        .foregroundColor(Color("UIText"))
+        .font(.system(size: 12))
+        .foregroundColor(ThemeForeground.color(for: selectedTheme))
         .lineLimit(1)
         .truncationMode(.tail)
-        .frame(height: 16)
-        .padding(.horizontal, 8)
+        .frame(maxWidth: 96)
     }
-    .frame(width: 112, height: 112)
-    .background(
-      // 배경 영역
-      RoundedRectangle(cornerRadius: 10)
-        .fill(Color("UIText").opacity(isHovered ? 0.06 : 0.03))
-    )
-    .overlay(
-      // ... 메뉴 버튼
-      VStack {
-        HStack {
-          Spacer()
-          
-          Rectangle()
-            .fill(Color.clear)
-            .frame(width: 28, height: 28)
-            .overlay(
-              Group {
-                if isHovered {
-                  Button(action: {
-                    showMenu = true
-                    tab.isEditSearch = false
-                  }) {
-                    Image(systemName: "ellipsis")
-                      .font(.system(size: 12, weight: .medium))
-                      .foregroundColor(Color("UIText").opacity(0.6))
-                      .frame(width: 26, height: 26)
-                      .rotationEffect(.degrees(90))
-                      .background(
-                        Circle()
-                          .fill(Color("UIText").opacity(isButtonHovered ? 0.1 : 0))
-                      )
-                  }
-                  .buttonStyle(.plain)
-                  .onHover { hovering in
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                      isButtonHovered = hovering
-                    }
-                  }
-                }
-              }
-            )
-            .popover(isPresented: $showMenu, arrowEdge: .top) {
-              FavoriteContextMenu(
-                favorite: favorite,
-                editingFavorite: $editingFavorite,
-                showEditDialog: $showEditDialog,
-                showMenu: $showMenu
-              )
-            }
-        }
-        .padding(.top, 4)
-        .padding(.trailing, 4)
-        
-        Spacer()
-      }
-    )
+    .frame(width: 96)
+    .contentShape(Rectangle())
     .onHover { hovering in
-      withAnimation(.easeInOut(duration: 0.2)) {
+      withAnimation(.easeInOut(duration: 0.15)) {
         isHovered = hovering
       }
     }

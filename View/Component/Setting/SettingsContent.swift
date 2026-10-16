@@ -25,7 +25,9 @@ struct SettingsContent: View {
         case .general:
           GeneralSettingsView(browser: browser, generalSettings: generalSettings)
         case .Theme:
-            ThemesSettingsView(browser: browser)
+          ThemesSettingsView(browser: browser)
+        case .backup:
+          BackupSettingsView(browser: browser)
         case .searchHistory:
           SearchHistorySettingsView(browser: browser)
         case .visitHistory:
@@ -40,9 +42,10 @@ struct SettingsContent: View {
         
         Spacer(minLength: 40)
       }
-      .padding(.horizontal, 36)
-      .padding(.top, 32)
-      .frame(maxWidth: .infinity, alignment: .topLeading)
+      .frame(maxWidth: 680, alignment: .topLeading)
+      .padding(.horizontal, 32)
+      .padding(.top, 28)
+      .frame(maxWidth: .infinity, alignment: .top)
     }
   }
 }

@@ -5,19 +5,13 @@
 //
 
 import SwiftUI
-import Sparkle
 
 
 
 @main
 struct OvraApp: App {
   
-  // Initialize Sparkle only for macOS
-  private let updaterController: SPUStandardUpdaterController
-  
-  init() {
-      updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
-  }
+  // Sparkle's updater lives in AppDelegate (one updater for the whole app).
   
   @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
   

@@ -17,7 +17,7 @@ enum DownloadState: String {
 
 class DownloadItem: ObservableObject, Identifiable {
     let id = UUID()
-    let filename: String
+    var filename: String
     let url: URL?
     var destinationURL: URL?
     
@@ -51,10 +51,16 @@ class DownloadItem: ObservableObject, Identifiable {
     }
     
     func cancel() {
-        download?.cancel { [weak self] resumeData in
+        guard state == .downloading else { return }
+        let item = self
+        DownloadManager.shared.markCancelled(item)
+        download?.cancel { resumeData in
             DispatchQueue.main.async {
-                self?.resumeData = resumeData
-                self?.state = .cancelled
+                item.resumeData = resumeData
+            }
+            // Don't leave a half-written file behind.
+            if let url = item.destinationURL {
+                try? FileManager.default.removeItem(at: url)
             }
         }
     }

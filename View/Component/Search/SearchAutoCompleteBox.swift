@@ -80,37 +80,39 @@ struct SearchAutoCompleteBox: View {
           Button {
             self.isSiteDialog.toggle()
           } label: {
-            HStack(spacing: 0) {
+            HStack(spacing: 4) {
+              if tab.isValidCertificate == false {
+                Image(systemName: "exclamationmark.triangle.fill")
+                  .font(.system(size: 12, weight: .semibold))
+                  .foregroundColor(Color("AlertText"))
+              } else if service.isTrackerBlocking {
+                Image(systemName: "shield.lefthalf.filled")
+                  .font(.system(size: 12, weight: .semibold))
+                  .foregroundColor(Color.privacyBadgeText)
+              } else {
+                Image(systemName: "shield.slash")
+                  .font(.system(size: 12, weight: .semibold))
+                  .foregroundColor(Color("Icon").opacity(0.7))
+              }
               if tab.originURL.scheme == "ovra" || tab.isValidCertificate == true {
                 Image(systemName: "lock.fill")
-                  .frame(maxWidth: 26, maxHeight: 26, alignment: .center)
-                  .clipShape(RoundedRectangle(cornerRadius: 14))
-                  .font(.system(size: 13))
-                  .fontWeight(.medium)
-                  .foregroundColor(Color("Icon"))
-              } else if tab.isValidCertificate == false {
-                Image(systemName: "exclamationmark.triangle.fill")
-                  .frame(maxWidth: 26, maxHeight: 26, alignment: .center)
-                  .clipShape(RoundedRectangle(cornerRadius: 14))
-                  .font(.system(size: 13))
-                  .fontWeight(.medium)
-                  .foregroundColor(Color("AlertText"))
-              } else {
-                Image(systemName: "lock.fill")
-                  .frame(maxWidth: 26, maxHeight: 26, alignment: .center)
-                  .clipShape(RoundedRectangle(cornerRadius: 14))
-                  .font(.system(size: 13))
-                  .fontWeight(.medium)
-                  .foregroundColor(Color("Icon"))
-                  .opacity(0.5)
+                  .font(.system(size: 9, weight: .bold))
+                  .foregroundColor(service.isTrackerBlocking ? Color.privacyBadgeText : Color("Icon").opacity(0.7))
               }
             }
-            .background(Color("InputBG"))
+            .padding(.horizontal, 8)
+            .frame(height: 26)
+            .background(
+              Capsule(style: .continuous)
+                .fill(tab.isValidCertificate == false ? Color("AlertText").opacity(0.12) : (service.isTrackerBlocking ? Color.privacyBadgeBG : Color("UIText").opacity(0.06)))
+            )
+            .contentShape(Capsule())
+            .accessibilityLabel(NSLocalizedString("Privacy and site settings", comment: ""))
             .popover(isPresented: $isSiteDialog, arrowEdge: .bottom) {
               SiteOptionDialog(service: service, browser: browser, tab: tab, isSiteDialog: $isSiteDialog)
             }
           }
-          .padding(.leading, 7)
+          .padding(.leading, 5)
           .buttonStyle(.plain)
         }
         
@@ -139,7 +141,7 @@ struct SearchAutoCompleteBox: View {
           SearchNSTextField(browser: browser, tab: tab, searchHistoryGroups: searchHistoryGroups, visitHistoryGroups: visitHistoryGroups, isScrollable: $isScrollable)
             .padding(.leading, tab.isEditSearch ? 4 : 9)
             .padding(.leading, isScrollable ? 0.2 : 0)
-            .frame(height: tab.isEditSearch ? 36 : 32)
+            .frame(height: 36)
             .onKeyPress(.upArrow) {
               let total = totalAutoCompleteCount
               if total > 0 {

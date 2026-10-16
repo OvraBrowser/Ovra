@@ -12,10 +12,10 @@ import SwiftData
 
 private enum OnboardingStep: Int, CaseIterable {
     case welcome = 0
+    case name
     case theme
     case searchEngine
-    case appearance
-    case language
+    case look
     case done
 }
 
@@ -23,483 +23,473 @@ private enum OnboardingStep: Int, CaseIterable {
 
 struct OnboardingView: View {
     var onFinish: () -> Void
+    /// Shared with the intro stage so its glow follows the chosen theme.
+    @Binding var chosenTheme: Theme
 
     @AppStorage("selectedTheme") private var selectedTheme: String = Theme.bluePurple.rawValue
     @Environment(\.colorScheme) private var colorScheme
     @Query var generalSettings: [GeneralSetting]
 
     @State private var step: OnboardingStep = .welcome
-    @State private var appeared = false
+    @State private var goingForward = true
+    @FocusState private var nameFocused: Bool
 
     // Local selections (committed on finish)
-    @State private var chosenTheme: String = Theme.bluePurple.rawValue
+    @State private var name: String = NSFullUserName().split(separator: " ").first.map(String.init) ?? ""
     @State private var chosenEngine: String = "Google"
     @State private var chosenMode: String = "System"
     @State private var chosenLanguage: String = "English"
 
-    private var currentGradient: LinearGradient {
-        if let theme = Theme.allCases.first(where: { $0.rawValue == chosenTheme }) {
-            return theme.gradient
-        }
-        return Theme.bluePurple.gradient
-    }
+    private var effects: ThemeEffects { ThemeEffects(chosenTheme) }
+    private var fg: Color { effects.foreground }
+    private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    private var stepCount: Int { OnboardingStep.allCases.count }
+    private var canContinue: Bool {
+        step != .name || !trimmedName.isEmpty
+    }
 
     var body: some View {
         ZStack {
-            // Background gradient
-            currentGradient
-                .opacity(0.15)
+            chosenTheme.gradient
                 .ignoresSafeArea()
-                .animation(.easeInOut(duration: 0.4), value: chosenTheme)
+                .animation(.easeInOut(duration: 0.45), value: chosenTheme)
 
             VStack(spacing: 0) {
-                // Progress dots
-                HStack(spacing: 8) {
-                    ForEach(OnboardingStep.allCases, id: \.rawValue) { s in
-                        Circle()
-                            .fill(s == step ? Color("UIText") : Color("UIText").opacity(0.15))
-                            .frame(width: s == step ? 8 : 6, height: s == step ? 8 : 6)
-                            .animation(.spring(response: 0.3), value: step)
-                    }
-                }
-                .padding(.top, 24)
-                .padding(.bottom, 16)
+                progressBar
+                    .padding(.top, 22)
 
-                Spacer()
+                Spacer(minLength: 16)
 
-                // Content
                 Group {
                     switch step {
-                    case .welcome:
-                        welcomeStep
-                    case .theme:
-                        themeStep
-                    case .searchEngine:
-                        searchEngineStep
-                    case .appearance:
-                        appearanceStep
-                    case .language:
-                        languageStep
-                    case .done:
-                        doneStep
+                    case .welcome: welcomeStep
+                    case .name: nameStep
+                    case .theme: themeStep
+                    case .searchEngine: searchEngineStep
+                    case .look: lookStep
+                    case .done: doneStep
                     }
                 }
+                .frame(maxWidth: 620)
                 .transition(.asymmetric(
-                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                    removal: .move(edge: .leading).combined(with: .opacity)
+                    insertion: .move(edge: goingForward ? .trailing : .leading).combined(with: .opacity),
+                    removal: .move(edge: goingForward ? .leading : .trailing).combined(with: .opacity)
                 ))
                 .id(step)
 
-                Spacer()
+                Spacer(minLength: 16)
 
-                // Navigation buttons
-                HStack(spacing: 12) {
-                    if step != .welcome && step != .done {
-                        Button(action: goBack) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 11, weight: .semibold))
-                                Text("Back")
-                                    .font(.system(size: 13, weight: .medium))
-                            }
-                            .foregroundColor(Color("UIText").opacity(0.6))
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(Color("UIText").opacity(0.06))
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    Spacer()
-
-                    if step == .done {
-                        Button(action: finish) {
-                            Text("Get Started")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.white)
-                                .padding(.vertical, 10)
-                                .padding(.horizontal, 32)
-                                .background(currentGradient)
-                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        Button(action: goNext) {
-                            HStack(spacing: 4) {
-                                Text(step == .welcome ? "Let's Go" : "Next")
-                                    .font(.system(size: 14, weight: .semibold))
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 11, weight: .semibold))
-                            }
-                            .foregroundColor(.white)
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 24)
-                            .background(currentGradient)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 36)
-                .padding(.bottom, 28)
+                navigation
+                    .padding(.bottom, 26)
+            }
+            .padding(.horizontal, 40)
+        }
+        .foregroundColor(fg)
+        .onAppear {
+            let system = Locale.preferredLanguages.first ?? "en"
+            if let match = languageOptions.first(where: { system.hasPrefix($0.code) }) {
+                chosenLanguage = match.name
             }
         }
-        .frame(width: 540, height: 520)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(nsColor: .windowBackgroundColor))
-        )
-        .onAppear {
-            // Load existing settings if available
-            if let s = generalSettings.first {
-                chosenEngine = s.searchEngine
-                chosenMode = s.screenMode
-            }
-            let lang = Locale.current.language.languageCode?.identifier ?? "en"
-            chosenLanguage = languageNameForCode(lang)
+    }
 
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                appeared = true
+    // MARK: - Chrome
+
+    private var progressBar: some View {
+        HStack(spacing: 6) {
+            ForEach(OnboardingStep.allCases, id: \.rawValue) { s in
+                Capsule()
+                    .fill(fg.opacity(s.rawValue <= step.rawValue ? 0.9 : 0.25))
+                    .frame(width: s == step ? 28 : 8, height: 6)
             }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: step)
+        .accessibilityElement()
+        .accessibilityLabel(String(format: NSLocalizedString("Step %d of %d", comment: ""), step.rawValue + 1, OnboardingStep.allCases.count))
+    }
+
+    private var navigation: some View {
+        HStack(spacing: 12) {
+            if step != .welcome && step != .done {
+                Button(action: goBack) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "chevron.left").font(.system(size: 11, weight: .bold))
+                        Text(NSLocalizedString("Back", comment: "")).font(.system(size: 13, weight: .medium))
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(height: 38)
+                    .background(Capsule().fill(fg.opacity(0.16)))
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.cancelAction)
+            }
+
+            Spacer()
+
+            Button(action: step == .done ? finish : goNext) {
+                HStack(spacing: 6) {
+                    Text(primaryTitle).font(.system(size: 14, weight: .semibold))
+                    if step != .done {
+                        Image(systemName: "arrow.right").font(.system(size: 12, weight: .bold))
+                    }
+                }
+                .foregroundColor(effects.usesDarkText ? .white : Color(red: 0.11, green: 0.11, blue: 0.12))
+                .padding(.horizontal, 22)
+                .frame(height: 40)
+                .background(Capsule().fill(effects.usesDarkText ? Color(red: 0.11, green: 0.11, blue: 0.12) : .white))
+                .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.defaultAction)
+            .disabled(!canContinue)
+            .opacity(canContinue ? 1 : 0.5)
+        }
+        .frame(maxWidth: 620)
+    }
+
+    private var primaryTitle: String {
+        switch step {
+        case .welcome: return NSLocalizedString("Get Started", comment: "")
+        case .done: return NSLocalizedString("Start Browsing", comment: "")
+        default: return NSLocalizedString("Continue", comment: "")
         }
     }
 
     // MARK: - Steps
 
     private var welcomeStep: some View {
-        VStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 72, height: 72)
-
-                currentGradient
-                    .mask(
-                        Image(systemName: "globe")
-                            .font(.system(size: 34, weight: .medium))
-                    )
-                    .frame(width: 34, height: 34)
-            }
-            .scaleEffect(appeared ? 1 : 0.5)
-            .opacity(appeared ? 1 : 0)
-
-            Text("Welcome to Ovra")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundColor(Color("UIText"))
-
-            Text("Let's set things up just the way you like.")
-                .font(.system(size: 14))
-                .foregroundColor(Color("UIText").opacity(0.5))
+        VStack(spacing: 18) {
+            Image("MainLogo")
+                .resizable()
+                .frame(width: 96, height: 96)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .shadow(color: .black.opacity(0.25), radius: 18, y: 8)
+                .accessibilityHidden(true)
+            Text(NSLocalizedString("Welcome to Ovra", comment: ""))
+                .font(.system(size: 38, weight: .bold))
+                .tracking(-0.6)
+            Text(NSLocalizedString("A fast browser that blocks trackers and looks the way you want. Let's set it up — it takes a minute.", comment: ""))
+                .font(.system(size: 15))
+                .opacity(0.85)
                 .multilineTextAlignment(.center)
+                .frame(maxWidth: 440)
+
+            HStack(spacing: 12) {
+                featurePill("shield.lefthalf.filled", NSLocalizedString("Tracker blocking", comment: ""))
+                featurePill("sidebar.left", NSLocalizedString("Tab sidebar", comment: ""))
+                featurePill("paintpalette", NSLocalizedString("Your own themes", comment: ""))
+            }
+            .padding(.top, 10)
+        }
+    }
+
+    private var nameStep: some View {
+        VStack(spacing: 18) {
+            stepHeader(NSLocalizedString("What should we call you?", comment: ""),
+                       NSLocalizedString("Ovra greets you by name on the start page.", comment: ""))
+
+            TextField(NSLocalizedString("Your name", comment: ""), text: $name)
+                .textFieldStyle(.plain)
+                .font(.system(size: 22, weight: .medium))
+                .multilineTextAlignment(.center)
+                .foregroundColor(Color(red: 0.11, green: 0.11, blue: 0.12))
+                .padding(.horizontal, 20)
+                .frame(width: 380, height: 56)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.94)))
+                .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+                .focused($nameFocused)
+                .onSubmit { if canContinue { goNext() } }
+                .accessibilityLabel(NSLocalizedString("Your name", comment: ""))
+                .onAppear { nameFocused = true }
+
+            glassCard {
+                HStack(spacing: 12) {
+                    Image(systemName: "lock.laptopcomputer")
+                        .font(.system(size: 18))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(NSLocalizedString("Your profile stays on this Mac", comment: ""))
+                            .font(.system(size: 13, weight: .semibold))
+                        Text(NSLocalizedString("Ovra accounts that sync your tabs, bookmarks and settings across devices are coming later.", comment: ""))
+                            .font(.system(size: 12))
+                            .opacity(0.8)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+            .frame(width: 420)
         }
     }
 
     private var themeStep: some View {
         VStack(spacing: 20) {
-            stepHeader(icon: "paintpalette.fill", title: "Choose a Theme", subtitle: "Pick a color that feels right")
+            stepHeader(NSLocalizedString("Pick your colors", comment: ""),
+                       NSLocalizedString("You can make your own themes later in Settings.", comment: ""))
 
-            // 2-row grid of theme swatches
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
                 ForEach(Theme.allCases) { theme in
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            chosenTheme = theme.rawValue
-                        }
-                    }) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.3)) { chosenTheme = theme }
+                    } label: {
                         VStack(spacing: 6) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(theme.gradient)
-                                    .frame(width: 56, height: 56)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                            .stroke(chosenTheme == theme.rawValue ? Color.white : .clear, lineWidth: 2.5)
-                                    )
-                                    .shadow(color: chosenTheme == theme.rawValue ? .black.opacity(0.2) : .clear, radius: 4, y: 2)
-
-                                if chosenTheme == theme.rawValue {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 16, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
-                                }
-                            }
-
+                            ThemePreview(effects: ThemeEffects(theme), compact: true)
+                                .frame(height: 62)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                        .strokeBorder(chosenTheme == theme ? fg : .clear, lineWidth: 2.5)
+                                        .padding(-3.5)
+                                )
+                                .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
                             Text(theme.rawValue)
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(Color("UIText").opacity(chosenTheme == theme.rawValue ? 1 : 0.5))
+                                .font(.system(size: 11, weight: chosenTheme == theme ? .semibold : .regular))
                                 .lineLimit(1)
                         }
+                        .padding(3.5)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(theme.rawValue)
+                    .accessibilityAddTraits(chosenTheme == theme ? .isSelected : [])
                 }
             }
-            .padding(.horizontal, 36)
         }
     }
 
     private var searchEngineStep: some View {
         VStack(spacing: 20) {
-            stepHeader(icon: "magnifyingglass", title: "Default Search Engine", subtitle: "You can change this later in Settings")
+            stepHeader(NSLocalizedString("Search with", comment: ""),
+                       NSLocalizedString("Used when you type in the address bar. Change it any time.", comment: ""))
 
-            VStack(spacing: 6) {
-                ForEach(SEARCH_ENGINE_LIST, id: \.name) { engine in
-                    engineRow(engine)
-                }
-            }
-            .padding(.horizontal, 56)
-        }
-    }
-
-    private var appearanceStep: some View {
-        VStack(spacing: 20) {
-            stepHeader(icon: "circle.lefthalf.filled", title: "Appearance", subtitle: "Choose your preferred look")
-
-            HStack(spacing: 16) {
-                appearanceCard(mode: "Light", icon: "sun.max.fill", label: "Light")
-                appearanceCard(mode: "Dark", icon: "moon.fill", label: "Dark")
-                appearanceCard(mode: "System", icon: "laptopcomputer", label: "System")
-            }
-            .padding(.horizontal, 48)
-        }
-    }
-
-    private var languageStep: some View {
-        VStack(spacing: 20) {
-            stepHeader(icon: "globe", title: "Language", subtitle: "Pick your preferred language")
-
-            VStack(spacing: 4) {
-                ForEach(languageOptions, id: \.code) { lang in
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.15)) { chosenLanguage = lang.name }
-                    }) {
-                        HStack(spacing: 10) {
-                            Text(lang.flag)
-                                .font(.system(size: 18))
-                                .frame(width: 24)
-
-                            Text(lang.name)
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(Color("UIText"))
-
-                            Spacer()
-
-                            if chosenLanguage == lang.name {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(Color("Point"))
-                            }
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(chosenLanguage == lang.name ? Color("UIText").opacity(0.06) : .clear)
-                        )
-                        .contentShape(Rectangle())
+            glassCard(padding: 6) {
+                VStack(spacing: 2) {
+                    ForEach(SEARCH_ENGINE_LIST, id: \.name) { engine in
+                        engineRow(engine)
                     }
-                    .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 56)
+            .frame(width: 420)
+        }
+    }
+
+    private var lookStep: some View {
+        VStack(spacing: 20) {
+            stepHeader(NSLocalizedString("Look & language", comment: ""),
+                       NSLocalizedString("Ovra follows your Mac by default.", comment: ""))
+
+            HStack(spacing: 14) {
+                appearanceCard(mode: "System", icon: "circle.lefthalf.filled", label: NSLocalizedString("Automatic", comment: ""))
+                appearanceCard(mode: "Light", icon: "sun.max.fill", label: NSLocalizedString("Light", comment: ""))
+                appearanceCard(mode: "Dark", icon: "moon.fill", label: NSLocalizedString("Dark", comment: ""))
+            }
+            .frame(width: 460)
+
+            glassCard {
+                HStack {
+                    Image(systemName: "globe")
+                    Text(NSLocalizedString("Language", comment: ""))
+                        .font(.system(size: 13, weight: .medium))
+                    Spacer()
+                    Picker(NSLocalizedString("Language", comment: ""), selection: $chosenLanguage) {
+                        ForEach(languageOptions, id: \.name) { option in
+                            Text(option.name).tag(option.name)
+                        }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                }
+            }
+            .frame(width: 460)
         }
     }
 
     private var doneStep: some View {
-        VStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 72, height: 72)
-
-                currentGradient
-                    .mask(
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 34, weight: .medium))
-                    )
-                    .frame(width: 34, height: 34)
-            }
-
-            Text("You're All Set!")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundColor(Color("UIText"))
-
-            Text("You can always change these in Settings.")
-                .font(.system(size: 14))
-                .foregroundColor(Color("UIText").opacity(0.5))
+        VStack(spacing: 18) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 30, weight: .bold))
+                .frame(width: 72, height: 72)
+                .background(Circle().fill(fg.opacity(0.18)))
+                .accessibilityHidden(true)
+            Text(String(format: NSLocalizedString("You're all set, %@", comment: ""), trimmedName))
+                .font(.system(size: 32, weight: .bold))
+                .tracking(-0.5)
                 .multilineTextAlignment(.center)
 
-            // Summary
-            VStack(spacing: 8) {
-                summaryRow(icon: "paintpalette.fill", label: "Theme", value: chosenTheme)
-                summaryRow(icon: "magnifyingglass", label: "Search", value: chosenEngine)
-                summaryRow(icon: "circle.lefthalf.filled", label: "Appearance", value: chosenMode)
-                summaryRow(icon: "globe", label: "Language", value: chosenLanguage)
+            glassCard {
+                VStack(spacing: 10) {
+                    summaryRow("paintpalette", NSLocalizedString("Theme", comment: ""), chosenTheme.rawValue)
+                    summaryRow("magnifyingglass", NSLocalizedString("Search", comment: ""), chosenEngine)
+                    summaryRow("circle.lefthalf.filled", NSLocalizedString("Appearance", comment: ""), modeLabel(chosenMode))
+                    summaryRow("globe", NSLocalizedString("Language", comment: ""), chosenLanguage)
+                }
             }
-            .padding(.horizontal, 80)
-            .padding(.top, 8)
+            .frame(width: 380)
+
+            Text(NSLocalizedString("Tip: back up or move Ovra any time in Settings › Backup & Import.", comment: ""))
+                .font(.system(size: 12))
+                .opacity(0.75)
         }
     }
 
-    // MARK: - Reusable Components
+    // MARK: - Pieces
 
-    private func stepHeader(icon: String, title: String, subtitle: String) -> some View {
+    private func stepHeader(_ title: String, _ subtitle: String) -> some View {
         VStack(spacing: 8) {
-            currentGradient
-                .mask(
-                    Image(systemName: icon)
-                        .font(.system(size: 28, weight: .medium))
-                )
-                .frame(width: 28, height: 28)
-
             Text(title)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundColor(Color("UIText"))
-
+                .font(.system(size: 30, weight: .bold))
+                .tracking(-0.4)
+                .multilineTextAlignment(.center)
             Text(subtitle)
-                .font(.system(size: 13))
-                .foregroundColor(Color("UIText").opacity(0.45))
+                .font(.system(size: 14))
+                .opacity(0.8)
+                .multilineTextAlignment(.center)
         }
+    }
+
+    private func glassCard<Content: View>(padding: CGFloat = 16, @ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .padding(padding)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(fg.opacity(0.14))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(fg.opacity(0.2), lineWidth: 0.5)
+                    )
+            )
+    }
+
+    private func featurePill(_ icon: String, _ title: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).font(.system(size: 12, weight: .semibold))
+            Text(title).font(.system(size: 12, weight: .medium))
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 30)
+        .background(Capsule().fill(fg.opacity(0.16)))
     }
 
     private func engineRow(_ engine: SearchEngine) -> some View {
-        Button(action: {
+        let isChosen = chosenEngine == engine.name
+        return Button {
             withAnimation(.easeInOut(duration: 0.15)) { chosenEngine = engine.name }
-        }) {
+        } label: {
             HStack(spacing: 12) {
-                // Favicon
-                if let img = decodeBase64(colorScheme == .dark ? engine.faviconWhite : engine.favicon) {
-                    Image(nsImage: img)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 20, height: 20)
-                } else {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 13))
-                        .foregroundColor(Color("Icon"))
-                        .frame(width: 20, height: 20)
+                Group {
+                    if let img = decodeBase64(engine.favicon) {
+                        Image(nsImage: img).resizable().aspectRatio(contentMode: .fit).padding(4)
+                    } else {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(Color(red: 0.11, green: 0.11, blue: 0.12))
+                    }
                 }
+                .frame(width: 26, height: 26)
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.white))
 
                 Text(engine.name)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color("UIText"))
-
                 Spacer()
-
-                ZStack {
-                    Circle()
-                        .stroke(chosenEngine == engine.name ? Color("Point") : Color("UIBorder").opacity(0.5), lineWidth: 1.5)
-                        .frame(width: 18, height: 18)
-
-                    if chosenEngine == engine.name {
-                        Circle()
-                            .fill(Color("Point"))
-                            .frame(width: 10, height: 10)
-                    }
-                }
+                Image(systemName: isChosen ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 17))
+                    .opacity(isChosen ? 1 : 0.45)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(chosenEngine == engine.name ? Color("UIText").opacity(0.05) : Color("UIText").opacity(0.02))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(chosenEngine == engine.name ? Color("Point").opacity(0.3) : Color("UIBorder").opacity(0.2), lineWidth: 0.5)
-                    )
-            )
+            .padding(.horizontal, 12)
+            .frame(height: 46)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(fg.opacity(isChosen ? 0.16 : 0)))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isChosen ? .isSelected : [])
     }
 
     private func appearanceCard(mode: String, icon: String, label: String) -> some View {
-        Button(action: {
+        let isChosen = chosenMode == mode
+        let isDark = mode == "Dark" || (mode == "System" && colorScheme == .dark)
+        return Button {
             withAnimation(.easeInOut(duration: 0.2)) { chosenMode = mode }
-        }) {
-            VStack(spacing: 10) {
-                // Preview card
+        } label: {
+            VStack(spacing: 8) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(mode == "Dark" ? Color(nsColor: NSColor(white: 0.12, alpha: 1)) :
-                              mode == "Light" ? Color.white :
-                              colorScheme == .dark ? Color(nsColor: NSColor(white: 0.12, alpha: 1)) : Color.white)
-                        .frame(height: 70)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .stroke(chosenMode == mode ? Color("Point") : Color("UIBorder").opacity(0.3), lineWidth: chosenMode == mode ? 2 : 0.5)
-                        )
-
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(isDark ? Color(white: 0.14) : Color.white)
+                    if mode == "System" {
+                        HStack(spacing: 0) {
+                            Color.white
+                            Color(white: 0.14)
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
                     Image(systemName: icon)
                         .font(.system(size: 22))
-                        .foregroundColor(mode == "Dark" ? .white.opacity(0.8) :
-                                         mode == "Light" ? Color(nsColor: NSColor(white: 0.15, alpha: 1)) :
-                                         Color("UIText").opacity(0.6))
+                        .foregroundColor(mode == "System" ? .gray : (isDark ? .white : Color(white: 0.15)))
                 }
-
+                .frame(height: 84)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(isChosen ? fg : .clear, lineWidth: 2.5)
+                        .padding(-3.5)
+                )
+                .shadow(color: .black.opacity(0.18), radius: 6, y: 3)
                 Text(label)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(chosenMode == mode ? Color("UIText") : Color("UIText").opacity(0.5))
+                    .font(.system(size: 12, weight: isChosen ? .semibold : .regular))
             }
+            .padding(3.5)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isChosen ? .isSelected : [])
     }
 
-    private func summaryRow(icon: String, label: String, value: String) -> some View {
+    private func summaryRow(_ icon: String, _ label: String, _ value: String) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 12))
-                .foregroundColor(Color("UIText").opacity(0.4))
-                .frame(width: 16)
-
-            Text(label)
-                .font(.system(size: 12))
-                .foregroundColor(Color("UIText").opacity(0.5))
-
+            Image(systemName: icon).frame(width: 18).opacity(0.75)
+            Text(label).font(.system(size: 13)).opacity(0.8)
             Spacer()
-
-            Text(value)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(Color("UIText"))
+            Text(value).font(.system(size: 13, weight: .semibold))
         }
-        .padding(.vertical, 4)
+    }
+
+    private func modeLabel(_ mode: String) -> String {
+        switch mode {
+        case "Light": return NSLocalizedString("Light", comment: "")
+        case "Dark": return NSLocalizedString("Dark", comment: "")
+        default: return NSLocalizedString("Automatic", comment: "")
+        }
     }
 
     // MARK: - Navigation
 
     private func goNext() {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            if let next = OnboardingStep(rawValue: step.rawValue + 1) {
-                step = next
-            }
-        }
+        guard canContinue, let next = OnboardingStep(rawValue: step.rawValue + 1) else { return }
+        goingForward = true
+        withAnimation(.easeInOut(duration: 0.3)) { step = next }
     }
 
     private func goBack() {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            if let prev = OnboardingStep(rawValue: step.rawValue - 1) {
-                step = prev
-            }
-        }
+        guard let prev = OnboardingStep(rawValue: step.rawValue - 1) else { return }
+        goingForward = false
+        withAnimation(.easeInOut(duration: 0.3)) { step = prev }
     }
 
     private func finish() {
-        // Apply all choices
-        selectedTheme = chosenTheme
+        LocalProfile.name = trimmedName
+        selectedTheme = chosenTheme.rawValue
         SettingsManager.setSearchEngine(chosenEngine)
         SettingsManager.setScreenMode(chosenMode)
 
+        // Only pin a language when it differs from the Mac's own.
         let code = languageCodeForName(chosenLanguage)
-        UserDefaults.standard.set([code], forKey: "AppleLanguages")
-        UserDefaults.standard.synchronize()
+        let system = Locale.preferredLanguages.first ?? "en"
+        if !system.hasPrefix(code) {
+            UserDefaults.standard.set([code], forKey: "AppleLanguages")
+        }
 
+        // A brand-new user doesn't need "What's New" for the version they installed.
+        if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+            UserDefaults.standard.set(version, forKey: "lastWhatsNewVersion")
+        }
         UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
         onFinish()
     }
@@ -514,24 +504,19 @@ struct OnboardingView: View {
     private struct LanguageOption {
         let code: String
         let name: String
-        let flag: String
     }
 
     private let languageOptions: [LanguageOption] = [
-        .init(code: "en", name: "English", flag: "🇬🇧"),
-        .init(code: "de", name: "Deutsch", flag: "🇩🇪"),
-        .init(code: "es", name: "Español", flag: "🇪🇸"),
-        .init(code: "fr", name: "Français", flag: "🇫🇷"),
-        .init(code: "hi", name: "हिन्दी", flag: "🇮🇳"),
-        .init(code: "ja", name: "日本語", flag: "🇯🇵"),
-        .init(code: "ko", name: "한국어", flag: "🇰🇷"),
-        .init(code: "nb", name: "Norsk", flag: "🇳🇴"),
-        .init(code: "zh", name: "中文", flag: "🇨🇳"),
+        .init(code: "en", name: "English"),
+        .init(code: "de", name: "Deutsch"),
+        .init(code: "es", name: "Español"),
+        .init(code: "fr", name: "Français"),
+        .init(code: "hi", name: "हिन्दी"),
+        .init(code: "ja", name: "日本語"),
+        .init(code: "ko", name: "한국어"),
+        .init(code: "nb", name: "Norsk"),
+        .init(code: "zh-Hans", name: "中文"),
     ]
-
-    private func languageNameForCode(_ code: String) -> String {
-        languageOptions.first(where: { $0.code == code })?.name ?? "English"
-    }
 
     private func languageCodeForName(_ name: String) -> String {
         languageOptions.first(where: { $0.name == name })?.code ?? "en"

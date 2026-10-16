@@ -17,7 +17,6 @@ struct SearchBoxDialog: View {
     VStack(spacing: 0) {
       if let activeTab = browser.tabs.first(where: { $0.id == activeTabId }) {
         SearchEditBox(service: service, browser: browser, tab: activeTab)
-          .padding(.top, isFullScreen ? 38 : 0)
       }
     }
   }

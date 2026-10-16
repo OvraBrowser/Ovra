@@ -22,19 +22,25 @@ struct SearchEditBox: View {
           HStack(spacing: 0) {
             HStack(spacing: 0) {
               VStack(spacing: 0) {
-                SearchAutoCompleteBox(service: service, browser: browser, tab: tab, tabWidth: CGFloat(searchBoxRect.width) + 4)
+                SearchAutoCompleteBox(service: service, browser: browser, tab: tab, tabWidth: CGFloat(searchBoxRect.width))
               }
-              .frame(width: searchBoxRect.width + 4)
+              .frame(width: searchBoxRect.width)
             }
-            .background(Color(tab.isEditSearch ? "ActiveInputBG" : "InputBG"))
-            .clipShape(RoundedRectangle(cornerRadius: tab.isEditSearch ? 18 : 15))
-            .shadow(color: .black.opacity(tab.isEditSearch ? colorScheme == .dark ? 0.4 : 0.15 : 0), radius: 4, x: 0, y: 2)
+            .background(
+              RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(tab.isEditSearch ? Color("ActiveInputBG") : Color.addressPill)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+              RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+            )
+            .shadow(color: Color(red: 0.08, green: 0.04, blue: 0.24).opacity(tab.isEditSearch ? (colorScheme == .dark ? 0.45 : 0.22) : 0.15), radius: tab.isEditSearch ? 14 : 8, x: 0, y: 2)
             Spacer()
           }
           Spacer()
         }
-        .padding(.top, tab.isEditSearch ? 4.5 : 6.5)
-        .padding(.leading, 125)
+        .offset(x: searchBoxRect.minX, y: searchBoxRect.minY)
       }
     }
   }

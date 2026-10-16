@@ -259,6 +259,16 @@ class NavigationCoordinator: NSObject, WKNavigationDelegate {
       decisionHandler(.download)
       return
     }
+
+    // "Content-Disposition: attachment" means the site wants it saved, even
+    // when WebKit could display it (images, text, JSON…).
+    if navigationResponse.isForMainFrame,
+       let http = navigationResponse.response as? HTTPURLResponse,
+       let disposition = http.value(forHTTPHeaderField: "Content-Disposition"),
+       disposition.lowercased().trimmingCharacters(in: .whitespaces).hasPrefix("attachment") {
+      decisionHandler(.download)
+      return
+    }
     
     decisionHandler(.allow)
   }
@@ -749,10 +759,10 @@ class NavigationCoordinator: NSObject, WKNavigationDelegate {
   
   // MARK: - Download delegate forwarding
   func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
-    download.delegate = downloadCoordinator
+    DownloadManager.shared.attach(download)
   }
   
   func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
-    download.delegate = downloadCoordinator
+    DownloadManager.shared.attach(download)
   }
 }
