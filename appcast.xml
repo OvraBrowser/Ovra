@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>Ovra</title>
+        <link>https://ovrabrowser.github.io/Ovra/appcast.xml</link>
+        <description>Updates for Ovra Browser</description>
+        <language>en</language>
+        <!-- Releases are added here by Sparkle's generate_appcast -->
+    </channel>
+</rss>

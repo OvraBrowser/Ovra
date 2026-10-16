@@ -1,0 +1,33 @@
+{
+  "originHash": "d3db80672ed6327c52cfd8d12a3652041efd5bd2239ee6cd6a87d7613f939372",
+  "pins": [
+    {
+      "identity": "asn1decoder",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/filom/ASN1Decoder",
+      "state": {
+        "revision": "7e1523662c69d019a3299bbfb22fb824141dd1f6",
+        "version": "1.10.0"
+      }
+    },
+    {
+      "identity": "sparkle",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/sparkle-project/Sparkle",
+      "state": {
+        "revision": "21d8df80440b1ca3b65fa82e40782f1e5a9e6ba2",
+        "version": "2.9.0"
+      }
+    },
+    {
+      "identity": "trackerradarkit",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/duckduckgo/TrackerRadarKit.git",
+      "state": {
+        "revision": "6d2db2a50cbd6d0a33d40864953bbef523489b28",
+        "version": "3.1.0"
+      }
+    }
+  ],
+  "version": 3
+}
